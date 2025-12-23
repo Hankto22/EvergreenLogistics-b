@@ -6,6 +6,7 @@ const router = new Hono();
 
 router.get('/', auth, controller.getShipments);
 router.get('/:id', auth, controller.getShipmentById);
+router.get('/evg/:evgCode', controller.getShipmentByEvgCode);
 router.post('/', auth, controller.createShipment);
 router.put('/:id', auth, controller.updateShipment);
 router.delete('/:id', auth, controller.deleteShipment);

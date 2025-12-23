@@ -20,6 +20,35 @@ A Hono.js backend API for the Evergreen logistics management system.
 - **File Uploads**: Cloudinary
 - **Rate Limiting**: hono-rate-limiter
 
+## Quick Start
+
+1. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+2. **Build the project**
+   ```bash
+   pnpm run build
+   ```
+
+3. **Initialize the database**
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+4. **Seed the database**
+   ```bash
+   tsx scripts/seed.ts
+   ```
+
+5. **Run the development server**
+   ```bash
+   pnpm run dev
+   ```
+
+The server will start on `http://localhost:4545`.
+
 ## Setup
 
 1. **Clone the repository**
@@ -101,6 +130,7 @@ The server will start on `http://localhost:4545`
 ### Authentication
 - `POST /api/login` - User login
 - `POST /api/register` - User registration
+- `GET /api/me` - Get current user details (authenticated)
 
 ### Gallery
 - `GET /api/gallery` - Get gallery items (with optional category filter)
@@ -109,7 +139,7 @@ The server will start on `http://localhost:4545`
 
 ### Shipments
 - `GET /api/shipments` - Get shipments (filtered by user role)
-- `GET /api/shipments/:shipmentCode` - Track shipment by EVG code (public access)
+- `GET /api/shipments/evg/:evgCode` - Track shipment by EVG code (public access)
 - `GET /api/shipments/:id` - Get shipment by ID (authenticated)
 - `PATCH /api/shipments/:id/status` - Update shipment status (Staff only)
 
@@ -137,11 +167,72 @@ All three identifiers work in the same tracking input field for maximum flexibil
 ### Users
 - `GET /api/users` - Get all users (Admin only)
 
+## Practical Examples
+
+### Login with PowerShell curl
+```powershell
+# Login to get JWT token
+$loginResponse = Invoke-RestMethod -Uri "http://localhost:4545/api/login" -Method Post -ContentType "application/json" -Body '{"email":"client@evergreen.com","password":"password123"}'
+$token = $loginResponse.token
+
+# Use token for protected endpoints
+Invoke-RestMethod -Uri "http://localhost:4545/api/me" -Method Get -Headers @{Authorization="Bearer $token"}
+```
+
+### File Upload with JavaScript fetch (Form-Data)
+```javascript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('category', 'documents');
+
+fetch('http://localhost:4545/api/uploads/cloudinary', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  },
+  body: formData
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+### Multipart Upload Example
+```javascript
+const formData = new FormData();
+formData.append('files', file1);
+formData.append('files', file2);
+formData.append('metadata', JSON.stringify({ description: 'Multiple files upload' }));
+
+fetch('http://localhost:4545/api/uploads/cloudinary', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  },
+  body: formData
+})
+.then(response => response.json())
+.then(data => console.log('Uploaded files:', data));
+```
+
 ## User Roles
 
 - **SUPER_ADMIN**: Full system access
 - **STAFF**: Can manage gallery and shipments
 - **CLIENT**: Can view their shipments and notifications
+
+## UUID Usage
+
+All resource IDs in the API are UUIDs (Universally Unique Identifiers) following the standard RFC 4122 format. When making requests that include IDs (e.g., `/api/shipments/:id`), ensure the ID is a valid UUID string. Invalid UUIDs will result in a `400 Bad Request` error.
+
+## Seeded Data
+
+The database seeding script creates three test users for development and testing:
+
+- **Admin User**: `admin@evergreen.com` / `password123` (Role: SUPER_ADMIN)
+- **Client User**: `client@evergreen.com` / `password123` (Role: CLIENT)
+- **Staff User**: `staff@evergreen.com` / `password123` (Role: STAFF)
+
+Use these credentials to test authentication and role-based access control.
 
 ## Development
 

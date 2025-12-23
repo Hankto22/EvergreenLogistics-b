@@ -19,6 +19,16 @@
       "key": "userId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "currentUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "shipmentId",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [

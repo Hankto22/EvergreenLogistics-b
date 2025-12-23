@@ -2,16 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   getShipments,
   getShipmentById,
+  getShipmentByEvgCode,
   createShipment,
   updateShipment,
   deleteShipment
 } from '../shipments.controller.js';
 import * as shipmentsService from '../shipments.service.js';
+import { BadRequestError, NotFoundError } from '../../../errors/customErrors.js';
 
 // Mock the shipments service
 vi.mock('../shipments.service.js', () => ({
   getAllShipmentsService: vi.fn(),
   getShipmentByIdService: vi.fn(),
+  getShipmentByEvgCodeService: vi.fn(),
   createShipmentService: vi.fn(),
   updateShipmentService: vi.fn(),
   deleteShipmentService: vi.fn(),
@@ -60,6 +63,33 @@ describe('Shipments Controller', () => {
       mockContext.req.param.mockReturnValue('1');
 
       await expect(getShipmentById(mockContext as any)).rejects.toThrow('Shipment not found');
+    });
+  });
+
+  describe('getShipmentByEvgCode', () => {
+    it('should return shipment successfully', async () => {
+      const mockShipment = { Id: '1', ShipmentCode: 'SHP001', EVGCode: 'EVG123456' };
+      (shipmentsService.getShipmentByEvgCodeService as any).mockResolvedValue(mockShipment);
+      mockContext.req.param.mockReturnValue('EVG123456');
+
+      const result = await getShipmentByEvgCode(mockContext as any);
+
+      expect(shipmentsService.getShipmentByEvgCodeService).toHaveBeenCalledWith('EVG123456');
+      expect(mockContext.json).toHaveBeenCalledWith({ success: true, message: 'Shipment retrieved successfully', data: mockShipment }, 200);
+    });
+
+    it('should throw BadRequestError for invalid EVG code format', async () => {
+      (shipmentsService.getShipmentByEvgCodeService as any).mockRejectedValue(new BadRequestError('Invalid EVG code format'));
+      mockContext.req.param.mockReturnValue('INVALID');
+
+      await expect(getShipmentByEvgCode(mockContext as any)).rejects.toThrow('Invalid EVG code format');
+    });
+
+    it('should throw NotFoundError when shipment not found', async () => {
+      (shipmentsService.getShipmentByEvgCodeService as any).mockRejectedValue(new NotFoundError('Shipment not found'));
+      mockContext.req.param.mockReturnValue('EVG999999');
+
+      await expect(getShipmentByEvgCode(mockContext as any)).rejects.toThrow('Shipment not found');
     });
   });
 

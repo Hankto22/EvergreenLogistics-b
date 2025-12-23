@@ -17,6 +17,12 @@ export const getShipmentById = async (c: Context) => {
   return successResponse(c, shipment, 'Shipment retrieved successfully');
 };
 
+export const getShipmentByEvgCode = async (c: Context) => {
+  const evgCode = c.req.param('evgCode');
+  const shipment = await shipmentsService.getShipmentByEvgCodeService(evgCode);
+  return successResponse(c, shipment, 'Shipment retrieved successfully');
+};
+
 export const createShipment = async (c: Context) => {
    const body = await c.req.json();
    const {

@@ -1,9 +1,20 @@
 import prisma from '../src/config/prisma.js';
 import bcrypt from 'bcryptjs';
 
-const seed = async () => {
+export const seed = async () => {
   try {
     console.log('Seeding database...');
+
+    // Delete existing test shipments first (due to foreign key constraints)
+    await prisma.shipment.deleteMany({
+      where: {
+        client: {
+          email: {
+            in: ['admin@evergreen.com', 'client@evergreen.com', 'staff@evergreen.com'],
+          },
+        },
+      },
+    });
 
     // Delete existing test users
     await prisma.user.deleteMany({
@@ -55,5 +66,3 @@ const seed = async () => {
     console.error('Seeding failed:', error.message);
   }
 };
-
-seed();

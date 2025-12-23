@@ -67,9 +67,43 @@ export const getAllShipmentsService = async (): Promise<ShipmentResponse[]> => {
 // Get shipment by ID
 export const getShipmentByIdService = async (id: string): Promise<ShipmentResponse> => {
   validateUUID(id);
+  const shipment = await prisma.shipment.findUnique({
+    where: { id },
+  });
+  if (!shipment) {
+    throw new NotFoundError('Shipment not found');
+  }
+  return {
+    Id: shipment.id,
+    ShipmentCode: shipment.shipmentCode,
+    EVGCode: shipment.evgCode,
+    BillOfLading: shipment.billOfLading || undefined,
+    ContainerNumber: shipment.containerNumber || undefined,
+    ClientId: shipment.clientId,
+    AssignedStaffId: shipment.assignedStaffId || undefined,
+    Description: shipment.description || undefined,
+    OriginCity: shipment.originCity || undefined,
+    OriginCountry: shipment.originCountry || undefined,
+    DestinationCity: shipment.destinationCity || undefined,
+    DestinationCountry: shipment.destinationCountry || undefined,
+    TransportMode: shipment.transportMode || undefined,
+    Status: shipment.status,
+    ProgressPercent: shipment.progressPercent,
+    EstimatedDeliveryDate: shipment.estimatedDeliveryDate || undefined,
+    CreatedAt: shipment.createdAt,
+    UpdatedAt: shipment.updatedAt || undefined,
+  };
+}
+
+// Get shipment by EVG code
+export const getShipmentByEvgCodeService = async (evgCode: string): Promise<ShipmentResponse> => {
+  // Validate EVG code format
+  if (!/^EVG\d{6}$/.test(evgCode)) {
+    throw new BadRequestError('Invalid EVG code format');
+  }
   try {
     const shipment = await prisma.shipment.findUnique({
-      where: { id },
+      where: { evgCode },
     });
     if (!shipment) {
       throw new NotFoundError('Shipment not found');
@@ -95,12 +129,9 @@ export const getShipmentByIdService = async (id: string): Promise<ShipmentRespon
       UpdatedAt: shipment.updatedAt || undefined,
     };
   } catch (error: any) {
-    console.log('Error in getShipmentByIdService:', error);
+    console.log('Error in getShipmentByEvgCodeService:', error);
     if (error.code === 'P2025') {
       throw new NotFoundError('Shipment not found');
-    }
-    if (error.code === 'P2023') {
-      throw new BadRequestError('Invalid UUID format');
     }
     throw new InternalServerError('Failed to retrieve shipment');
   }

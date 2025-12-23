@@ -19,12 +19,23 @@ app.use('*', logger());
 // app.use('*', limiter);
 
 // Error handler
-app.onError((error, c) => {
+app.onError(async (error, c) => {
   console.error('Error:', error);
-  if (error && typeof error === 'object' && 'statusCode' in error) {
-    return c.json({ message: (error as any).message }, (error as any).statusCode);
+  if (error && typeof error === 'object' && 'statusCode' in error && 'code' in error) {
+    // For CustomError instances, return consistent payload
+    const customError = error as any;
+    return c.json({
+      code: customError.code,
+      message: customError.message,
+      details: customError.details || undefined
+    }, customError.statusCode);
   }
-  return c.json({ message: 'Internal Server Error' }, 500);
+
+  // For unknown errors, return consistent payload
+  return c.json({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'Internal Server Error'
+  }, 500);
 });
 
 // Routes

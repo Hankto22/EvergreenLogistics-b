@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { successResponse } from '../../utils/apiResponse.js';
 import * as authService from './auth.service.js';
 import type { LoginRequest, RegisterRequest, CreateUserRequest, UserPayload, RequestOtpRequest, VerifyOtpRequest } from './auth.types.js';
-import { getUserByEmailService } from '../users/users.service.js';
+import { getUserByEmailService, getUserByIdService } from '../users/users.service.js';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import { sendNotificationEmail } from '../../mailer/mailer.js';
@@ -138,4 +138,15 @@ export const verifyOtp = async (c: Context) => {
     },
     token,
   }, 'OTP verified and login successful');
+};
+
+export const getMe = async (c: Context) => {
+  const userPayload = c.get('user');
+  const user = await getUserByIdService(userPayload.id);
+  return successResponse(c, {
+    id: user.Id,
+    role: user.Role,
+    fullName: user.FullName,
+    email: user.Email,
+  }, 'User info retrieved successfully');
 };
