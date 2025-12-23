@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+model User {
+  id         String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  fullName   String   @map("FullName") @db.NVarChar(150)
+  email      String   @unique @db.NVarChar(150)
+  passwordHash String @map("PasswordHash") @db.NVarChar(255)
+  role       String   @db.NVarChar(20)
+  isActive   Boolean  @default(true) @map("IsActive")
+  createdAt  DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+  updatedAt  DateTime? @map("UpdatedAt") @db.DateTime2
+
+  shipments     Shipment[]
+  assignedShipments Shipment[] @relation("AssignedStaff")
+  galleryItems  GalleryItem[]
+  notifications Notification[]
+  mediaUploads  MediaUpload[]
+  otps           Otp[]
+
+  @@map("Users")
+}
+
+model Shipment {
+  id                String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  shipmentCode      String   @map("ShipmentCode") @db.NVarChar(50)
+  evgCode           String   @unique @map("EVGCode") @db.NVarChar(50)
+  billOfLading      String?  @map("BillOfLading") @db.NVarChar(100)
+  containerNumber   String?  @map("ContainerNumber") @db.NVarChar(100)
+  clientId          String   @map("ClientId") @db.UniqueIdentifier
+  assignedStaffId   String?  @map("AssignedStaffId") @db.UniqueIdentifier
+  description       String?  @map("Description") @db.NVarChar(255)
+  originCity        String?  @map("OriginCity") @db.NVarChar(100)
+  originCountry     String?  @map("OriginCountry") @db.NVarChar(100)
+  destinationCity   String?  @map("DestinationCity") @db.NVarChar(100)
+  destinationCountry String? @map("DestinationCountry") @db.NVarChar(100)
+  transportMode     String?  @map("TransportMode") @db.NVarChar(30)
+  status            String   @map("Status") @db.NVarChar(30)
+  progressPercent   Int      @default(0) @map("ProgressPercent")
+  estimatedDeliveryDate DateTime? @map("EstimatedDeliveryDate") @db.Date
+  createdAt         DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+  updatedAt         DateTime? @map("UpdatedAt") @db.DateTime2
+
+  client            User @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedStaff     User? @relation("AssignedStaff", fields: [assignedStaffId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events            ShipmentEvent[]
+  invoices          Invoice[]
+
+  @@map("Shipments")
+}
+
+model ShipmentEvent {
+  id            String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  shipmentId    String   @map("ShipmentId") @db.UniqueIdentifier
+  eventTitle    String?  @map("EventTitle") @db.NVarChar(150)
+  eventLocation String?  @map("EventLocation") @db.NVarChar(150)
+  eventDate     DateTime? @map("EventDate") @db.DateTime2
+  status        String?  @map("Status") @db.NVarChar(30)
+  createdAt     DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@map("ShipmentEvents")
+}
+
+model Invoice {
+  id             String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  invoiceCode    String   @unique @map("InvoiceCode") @db.NVarChar(50)
+  shipmentId     String   @map("ShipmentId") @db.UniqueIdentifier
+  amount         Decimal? @map("Amount") @db.Decimal(18, 2)
+  currency       String   @default("USD") @map("Currency") @db.NVarChar(10)
+  status         String   @map("Status") @db.NVarChar(20)
+  invoiceUrl     String?  @map("InvoiceUrl") @db.NVarChar(500)
+  createdAt      DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id])
+
+  @@map("Invoices")
+}
+
+model GalleryItem {
+  id            String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  title         String   @map("Title") @db.NVarChar(255)
+  category      String   @map("Category") @db.NVarChar(50)
+  description   String?  @map("Description") @db.NText
+  mediaType     String   @map("MediaType") @db.NVarChar(10)
+  mediaUrl      String   @map("MediaUrl") @db.NVarChar(500)
+  thumbnailUrl  String?  @map("ThumbnailUrl") @db.NVarChar(500)
+  createdByUserId String @map("CreatedByUserId") @db.UniqueIdentifier
+  createdAt     DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  createdBy User @relation(fields: [createdByUserId], references: [id])
+
+  @@map("GalleryItems")
+}
+
+model Notification {
+  id         String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  userId     String   @map("UserId") @db.UniqueIdentifier
+  message    String?  @map("Message") @db.NVarChar(255)
+  isRead     Boolean  @default(false) @map("IsRead")
+  createdAt  DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Notifications")
+}
+
+model MediaUpload {
+  id               String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  uploadedBy       String?  @map("UploadedBy") @db.UniqueIdentifier
+  mediaUrl         String?  @map("MediaUrl") @db.NVarChar(500)
+  mediaType        String?  @map("MediaType") @db.NVarChar(10)
+  cloudinaryPublicId String? @map("CloudinaryPublicId") @db.NVarChar(255)
+  createdAt        DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  uploadedByUser User? @relation(fields: [uploadedBy], references: [id])
+
+  @@map("MediaUploads")
+}
+
+model Otp {
+  id        String   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  userId    String   @map("UserId") @db.UniqueIdentifier
+  otpCode   String   @map("OtpCode") @db.NVarChar(10)
+  expiresAt DateTime @map("ExpiresAt") @db.DateTime2
+  isUsed    Boolean  @default(false) @map("IsUsed")
+  createdAt DateTime @default(now()) @map("CreatedAt") @db.DateTime2
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Otps")
+}

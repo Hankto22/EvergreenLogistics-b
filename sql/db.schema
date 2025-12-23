@@ -1,0 +1,289 @@
+-- Evergreen Logistics Database Schema
+-- MSSQL Server
+
+-- ===========================================
+-- 1️⃣ CORE USERS & AUTH
+-- ===========================================
+
+CREATE TABLE Users (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    FullName NVARCHAR(150) NOT NULL,
+    Email NVARCHAR(150) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    Role NVARCHAR(20) NOT NULL
+        CHECK (Role IN ('SUPER_ADMIN', 'STAFF', 'CLIENT')),
+    IsActive BIT DEFAULT 1,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 NULL
+);
+
+-- ===========================================
+-- 2️⃣ SHIPMENTS (TRACKING, TIMELINE, DASHBOARDS)
+-- ===========================================
+
+CREATE TABLE Shipments (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    ShipmentCode NVARCHAR(50) NOT NULL UNIQUE, -- SH-101
+    EVGCode NVARCHAR(50) UNIQUE NOT NULL DEFAULT '', -- EVG-2025-0001
+    BillOfLading NVARCHAR(100) NULL,
+    ContainerNumber NVARCHAR(100) NULL,
+    ClientId UNIQUEIDENTIFIER NOT NULL,
+    AssignedStaffId UNIQUEIDENTIFIER NULL,
+    Description NVARCHAR(255),
+    OriginCity NVARCHAR(100),
+    OriginCountry NVARCHAR(100),
+    DestinationCity NVARCHAR(100),
+    DestinationCountry NVARCHAR(100),
+    TransportMode NVARCHAR(30)
+        CHECK (TransportMode IN ('OCEAN', 'AIR', 'ROAD')),
+    Status NVARCHAR(30)
+        CHECK (Status IN (
+            'PROCESSING',
+            'IN_TRANSIT',
+            'CUSTOMS_CLEARANCE',
+            'DELIVERED'
+        )),
+    ProgressPercent INT DEFAULT 0,
+    EstimatedDeliveryDate DATE NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 NULL,
+
+    CONSTRAINT FK_Shipments_Client
+        FOREIGN KEY (ClientId) REFERENCES Users(Id),
+
+    CONSTRAINT FK_Shipments_Staff
+        FOREIGN KEY (AssignedStaffId) REFERENCES Users(Id)
+);
+
+-- ===========================================
+-- 3️⃣ SHIPMENT TIMELINE (ANIMATED TRACKING STEPS)
+-- ===========================================
+
+CREATE TABLE ShipmentEvents (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    ShipmentId UNIQUEIDENTIFIER NOT NULL,
+    EventTitle NVARCHAR(150),
+    EventLocation NVARCHAR(150),
+    EventDate DATETIME2,
+    Status NVARCHAR(30),
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_ShipmentEvents_Shipment
+        FOREIGN KEY (ShipmentId) REFERENCES Shipments(Id)
+        ON DELETE CASCADE
+);
+
+-- ===========================================
+-- 4️⃣ INVOICES (CLIENT DASHBOARD)
+-- ===========================================
+
+CREATE TABLE Invoices (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    InvoiceCode NVARCHAR(50) NOT NULL UNIQUE, -- INV-001
+    ShipmentId UNIQUEIDENTIFIER NOT NULL,
+    Amount DECIMAL(18,2),
+    Currency NVARCHAR(10) DEFAULT 'USD',
+    Status NVARCHAR(20)
+        CHECK (Status IN ('PAID', 'UNPAID', 'OVERDUE')),
+    InvoiceUrl NVARCHAR(500),
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Invoices_Shipment
+        FOREIGN KEY (ShipmentId) REFERENCES Shipments(Id)
+);
+
+-- ===========================================
+-- 5️⃣ GALLERY / COMMUNITY IMPACT
+-- ===========================================
+
+CREATE TABLE GalleryItems (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    Title NVARCHAR(255) NOT NULL,
+    Category NVARCHAR(50)
+        CHECK (Category IN (
+            'ChildrenHomes',
+            'OrphanSupport',
+            'SchoolSupport',
+            'Donations',
+            'Events'
+        )),
+    Description NVARCHAR(MAX),
+    MediaType NVARCHAR(10)
+        CHECK (MediaType IN ('image', 'video')),
+    MediaUrl NVARCHAR(500) NOT NULL,
+    ThumbnailUrl NVARCHAR(500) NULL,
+    CreatedByUserId UNIQUEIDENTIFIER NOT NULL,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_GalleryItems_User
+        FOREIGN KEY (CreatedByUserId) REFERENCES Users(Id)
+);
+
+-- ===========================================
+-- 6️⃣ NOTIFICATIONS (BELL ICON)
+-- ===========================================
+
+CREATE TABLE Notifications (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    Message NVARCHAR(255),
+    IsRead BIT DEFAULT 0,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Notifications_User
+        FOREIGN KEY (UserId) REFERENCES Users(Id)
+        ON DELETE CASCADE
+);
+
+-- ===========================================
+-- 7️⃣ MEDIA UPLOAD AUDIT
+-- ===========================================
+
+CREATE TABLE MediaUploads (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    UploadedBy UNIQUEIDENTIFIER,
+    MediaUrl NVARCHAR(500),
+    MediaType NVARCHAR(10),
+    CloudinaryPublicId NVARCHAR(255),
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_MediaUploads_User
+        FOREIGN KEY (UploadedBy) REFERENCES Users(Id)
+);
+
+-- ===========================================
+-- 8️⃣ OTP (AUTHENTICATION)
+-- ===========================================
+
+CREATE TABLE Otps (
+    Id UNIQUEIDENTIFIER DEFAULT NEWID() PRIMARY KEY,
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    OtpCode NVARCHAR(10) NOT NULL,
+    ExpiresAt DATETIME2 NOT NULL,
+    IsUsed BIT DEFAULT 0,
+    CreatedAt DATETIME2 DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Otps_User
+        FOREIGN KEY (UserId) REFERENCES Users(Id)
+        ON DELETE CASCADE
+);
+
+-- ===========================================
+-- 9️⃣ INDEXES (PERFORMANCE)
+-- ===========================================
+
+CREATE INDEX IDX_Shipments_ClientId ON Shipments(ClientId);
+CREATE INDEX IDX_Shipments_Status ON Shipments(Status);
+CREATE UNIQUE INDEX IDX_Shipments_EVGCode ON Shipments(EVGCode);
+CREATE INDEX IDX_Shipments_BL ON Shipments(BillOfLading);
+CREATE INDEX IDX_Shipments_Container ON Shipments(ContainerNumber);
+CREATE INDEX IDX_Gallery_Category ON GalleryItems(Category);
+CREATE INDEX IDX_Notifications_UserId ON Notifications(UserId);
+CREATE INDEX IDX_Otps_UserId ON Otps(UserId);
+CREATE INDEX IDX_Otps_ExpiresAt ON Otps(ExpiresAt);
+
+-- ===========================================
+-- 10️⃣ STORED PROCEDURES (TRACKING LOGIC)
+-- ===========================================
+
+-- Core tracking search procedure
+CREATE OR ALTER PROCEDURE sp_TrackShipmentByEVGCode
+    @SearchCode NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Normalize input
+    DECLARE @Code NVARCHAR(100) = LTRIM(RTRIM(@SearchCode));
+
+    SELECT
+        s.Id,
+        s.EVGCode,
+        s.ShipmentCode,
+        s.BillOfLading,
+        s.ContainerNumber,
+        s.Description,
+        s.TransportMode,
+        s.Status,
+        s.ProgressPercent,
+        s.EstimatedDeliveryDate,
+        s.OriginCity,
+        s.OriginCountry,
+        s.DestinationCity,
+        s.DestinationCountry,
+        s.CreatedAt
+    FROM Shipments s
+    WHERE
+        s.EVGCode = @Code
+        OR s.BillOfLading = @Code
+        OR s.ContainerNumber = @Code;
+END;
+
+-- Timeline procedure for shipment events
+CREATE OR ALTER PROCEDURE sp_GetShipmentTimeline
+    @ShipmentId UNIQUEIDENTIFIER
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        EventTitle,
+        EventLocation,
+        EventDate,
+        Status
+    FROM ShipmentEvents
+    WHERE ShipmentId = @ShipmentId
+    ORDER BY EventDate ASC;
+END;
+
+-- Combined tracking procedure (returns shipment + timeline)
+CREATE OR ALTER PROCEDURE sp_TrackShipmentFull
+    @SearchCode NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ShipmentId UNIQUEIDENTIFIER;
+
+    SELECT TOP 1
+        @ShipmentId = Id
+    FROM Shipments
+    WHERE
+        EVGCode = @SearchCode
+        OR BillOfLading = @SearchCode
+        OR ContainerNumber = @SearchCode;
+
+    -- If not found
+    IF @ShipmentId IS NULL
+    BEGIN
+        SELECT
+            'NOT_FOUND' AS Result;
+        RETURN;
+    END;
+
+    -- Shipment details
+    SELECT
+        s.Id,
+        s.EVGCode,
+        s.ShipmentCode,
+        s.TransportMode,
+        s.Status,
+        s.ProgressPercent,
+        s.EstimatedDeliveryDate,
+        s.OriginCity,
+        s.OriginCountry,
+        s.DestinationCity,
+        s.DestinationCountry
+    FROM Shipments s
+    WHERE s.Id = @ShipmentId;
+
+    -- Timeline
+    SELECT
+        EventTitle,
+        EventLocation,
+        EventDate,
+        Status
+    FROM ShipmentEvents
+    WHERE ShipmentId = @ShipmentId
+    ORDER BY EventDate ASC;
+END;
